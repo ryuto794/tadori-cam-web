@@ -345,6 +345,7 @@ function renderTemplates() {
       state.template = t;
       renderTemplates();
       $('start').disabled = false;
+      $('start').textContent = 'カメラを許可して渡す';
     });
     box.appendChild(b);
   }
