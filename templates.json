@@ -1,0 +1,38 @@
+[
+  {
+    "id": "cafe-kneeup-01",
+    "name": "カフェ・膝上",
+    "situation": "cafe",
+    "framing": "knee_up",
+    "people": 1,
+    "gender": "any",
+    "aspect": "4:5",
+    "lens": "1x",
+    "pitch": { "target_deg": 0, "tol_deg": 2 },
+    "roll": { "tol_deg": 1 },
+    "center_line_part": "chest",
+    "subject_size": { "target": 0.70, "tol": 0.05 },
+    "anchor": { "part": "head", "y_from_top": 0.12 },
+    "subject_x": 0.5,
+    "owner_hint": "カップを口元に",
+    "curator": "sample"
+  },
+  {
+    "id": "street-fullbody-01",
+    "name": "街・全身",
+    "situation": "street",
+    "framing": "full_body",
+    "people": 1,
+    "gender": "any",
+    "aspect": "4:5",
+    "lens": "1x",
+    "pitch": { "target_deg": 0, "tol_deg": 2 },
+    "roll": { "tol_deg": 1 },
+    "center_line_part": "waist",
+    "subject_size": { "target": 0.83, "tol": 0.05 },
+    "anchor": { "part": "head", "y_from_top": 0.15 },
+    "subject_x": 0.5,
+    "owner_hint": "片足を少し前に",
+    "curator": "sample"
+  }
+]
