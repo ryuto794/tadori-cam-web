@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   tiltFromOrientation, judgeTilt, parseAspect, cropRect,
-  silhouetteLayout, validateTemplate, secondsBetween, PART_FRACTION,
+  silhouetteLayout, validateTemplate, secondsBetween, PART_FRACTION, SEATED_PART_FRACTION,
 } from '../logic.js';
 import { readFileSync } from 'node:fs';
 
@@ -87,6 +87,27 @@ test('シルエットは、指定の部位が上下中央の線に来る大き�
     near(l.top + l.height * PART_FRACTION[part], 0.5);
     near(l.top, 0.12);
   }
+});
+
+test('座りのテンプレは座りの比率で大きさを決める', () => {
+  const seated = { ...tpl, pose: 'seated', center_line_part: 'shoulder', anchor: { part: 'head', y_from_top: 0.35 } };
+  const l = silhouetteLayout(seated);
+  near(l.top + l.height * SEATED_PART_FRACTION.shoulder, 0.5);
+  near(l.top + l.height, 0.95);   // 足先は下端ぎりぎり(お手本の中央値)
+  assert.ok(validateTemplate({ ...seated, center_line_part: 'solar' }).length > 0);   // 座りにみぞおちはない
+  assert.ok(validateTemplate({ ...tpl, pose: 'lying' }).length > 0);
+});
+
+test('全身・立ちはみぞおちを中央の線に置くと、足先が下端ぎりぎりになる', () => {
+  const l = silhouetteLayout({ ...tpl, center_line_part: 'solar', anchor: { part: 'head', y_from_top: 0.24 } });
+  assert.ok(Math.abs(l.top + l.height - 0.96) < 0.01);
+});
+
+test('輪郭の点の形式を検査する', () => {
+  const pts = Array.from({ length: 10 }, (_, i) => [Math.cos(i) * 0.1, i / 9]);
+  assert.deepEqual(validateTemplate({ ...tpl, outline: pts }), []);
+  assert.ok(validateTemplate({ ...tpl, outline: pts.slice(0, 3) }).length > 0);
+  assert.ok(validateTemplate({ ...tpl, outline: [...pts, [0, 'a']] }).length > 0);
 });
 
 test('テンプレの検査', () => {

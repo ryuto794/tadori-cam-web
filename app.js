@@ -4,7 +4,7 @@ import {
   silhouetteLayout, validateTemplate, secondsBetween, upVector,
 } from './logic.js';
 import {
-  bodyFromMediaPipe, pickSubject, judgePose, nextInstruction, updateAutoShoot,
+  bodyFromMediaPipe, pickSubject, judgePose, nextInstruction, updateAutoShoot, poseSupported,
 } from './pose-logic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -21,7 +21,7 @@ const AUTO = POSE && PARAMS.has('auto');
 const MEDIAPIPE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 const POSE_INTERVAL_MS = 100;
-const PART_LABEL = { eye: '目', chest: '胸', waist: '腰', knee: '膝' };
+const PART_LABEL = { eye: '目', shoulder: '肩', chest: '胸', solar: 'みぞおち', waist: '腰', knee: '膝' };
 
 const state = {
   templates: [],
@@ -36,6 +36,7 @@ const state = {
   selected: 0,
   busy: false,
   wakeLock: null,
+  plain: false,        // 比較用:ガイドを出さずに撮る
   pose: { landmarker: null, loading: null, ready: false, judge: null, subject: null, auto: null, timer: 0 },
 };
 
@@ -48,17 +49,31 @@ function show(name) {
 
 // ---------- シルエット(試作用の汎用の人型。本番はお手本画像から作ったPNGに置き換える) ----------
 // 右半身の輪郭。x は体の中心からの距離、y は頭頂=0・足先=1。単位はどちらも身長。
-const HALF_OUTLINE = [
+// 立っている人を正面から見た右半身。y は頭頂=0・足先=1、x は身長に対する割合
+const STANDING_HALF_OUTLINE = [
   [0, 0], [0.045, 0.02], [0.055, 0.065], [0.04, 0.115], [0.025, 0.135],
   [0.11, 0.165], [0.13, 0.21], [0.135, 0.32], [0.125, 0.44], [0.105, 0.5],
   [0.1, 0.56], [0.075, 0.72], [0.07, 0.82], [0.045, 0.95], [0.08, 0.99],
   [0.02, 1], [0.012, 0.94], [0.012, 0.74], [0, 0.54],
 ];
 
+// 座っている人を正面から見た右半身。y は頭頂=0・床についた足先=1、x は座高に対する割合
+const SEATED_HALF_OUTLINE = [
+  [0, 0], [0.06, 0.025], [0.072, 0.085], [0.052, 0.15], [0.035, 0.18],
+  [0.14, 0.22], [0.165, 0.28], [0.16, 0.42], [0.15, 0.52], [0.2, 0.58],
+  [0.21, 0.66], [0.15, 0.71], [0.13, 0.86], [0.11, 0.96], [0.15, 1],
+  [0.05, 1], [0.035, 0.9], [0.03, 0.72], [0, 0.69],
+];
+
 function silhouettePath(template, W, H) {
   const { top, height, x } = silhouetteLayout(template);
-  const left = HALF_OUTLINE.slice(1, -1).reverse().map(([px, py]) => [-px, py]);
-  const pts = [...HALF_OUTLINE, ...left].map(([px, py]) => [x * W + px * height * H, (top + py * height) * H]);
+  // テンプレにポーズ付きの輪郭があればそれを使う(お手本写真の関節位置から作った形)。なければ左右対称の汎用の形
+  let outline = template.outline;
+  if (!Array.isArray(outline) || outline.length < 8) {
+    const HALF = template.pose === 'seated' ? SEATED_HALF_OUTLINE : STANDING_HALF_OUTLINE;
+    outline = [...HALF, ...HALF.slice(1, -1).reverse().map(([px, py]) => [-px, py])];
+  }
+  const pts = outline.map(([px, py]) => [x * W + px * height * H, (top + py * height) * H]);
   // 閉じた Catmull-Rom 曲線をベジェに直す
   const n = pts.length;
   let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
@@ -78,7 +93,11 @@ function el(name, attrs = {}, parent) {
   return node;
 }
 
-/** 点線シルエットと上下中央の線を描く。gauge=true なら傾きゲージも付ける */
+/**
+ * 撮影画面の重ね表示(デザイン案 v1)。
+ * 1 点線のシルエット 2 水平バー(左右の端の目盛りに重なれば合格) 3 高さの目印(目盛りの高さに来る部位)
+ * 4 矢印(1つだけ)。頭の上の帯には何も置かない。gauge=false はお手本一覧の小さな絵
+ */
 function drawOverlay(svg, template, { gauge }) {
   const H = 1000;
   const W = Math.round(H * parseAspect(template.aspect));
@@ -87,16 +106,22 @@ function drawOverlay(svg, template, { gauge }) {
   const d = silhouettePath(template, W, H);
   el('path', { d, class: 'sil-shadow' }, svg);
   el('path', { d, class: 'sil' }, svg);
-  el('line', { x1: 0, y1: H / 2, x2: W, y2: H / 2, class: 'centerline-shadow' }, svg);
-  el('line', { x1: 0, y1: H / 2, x2: W, y2: H / 2, class: 'centerline' }, svg);
+  // 目盛り(上下中央の左右の端)
+  for (const x of [0, W - 46]) {
+    el('rect', { x, y: H / 2 - 5, width: 46, height: 10, class: 'tick-shadow' }, svg);
+    el('rect', { x, y: H / 2 - 4, width: 46, height: 8, class: 'tick' }, svg);
+  }
+  // 高さの目印:傾けずに構えたとき、目盛りの高さに来るべき部位
+  const mx = (template.subject_x ?? 0.5) * W;
+  el('circle', { cx: mx, cy: H / 2, r: 15, class: 'mark-shadow' }, svg);
+  el('circle', { cx: mx, cy: H / 2, r: 15, class: 'mark' }, svg);
   if (!gauge) return null;
   const debug = el('g', { class: 'pose-debug' }, svg);
   const poseHint = el('g', { class: 'pose-hint' }, svg);
   const g = el('g', { class: 'gauge' }, svg);
   const level = el('g', {}, g);
   for (const cls of ['level-shadow', 'level']) {
-    el('line', { x1: W / 2 - 170, y1: 0, x2: W / 2 - 50, y2: 0, class: cls }, level);
-    el('line', { x1: W / 2 + 50, y1: 0, x2: W / 2 + 170, y2: 0, class: cls }, level);
+    el('line', { x1: 70, y1: 0, x2: W - 70, y2: 0, class: cls }, level);
   }
   // 指示は一度に1つ:回す向きの矢印、または線を中央へ戻す向きの山形
   const hint = el('path', { class: 'hint' }, g);
@@ -133,7 +158,7 @@ function render() {
   const { level, hint, poseHint, debug, W, H } = gaugeParts;
   const t = state.template;
   const tiltKnown = !!state.tilt;
-  const poseActive = POSE && state.pose.ready;
+  const poseActive = POSE && state.pose.ready && poseSupported(t);
   shoot.dataset.sensor = tiltKnown ? 'on' : 'none';
 
   if (tiltKnown) {
@@ -142,7 +167,7 @@ function render() {
     // 見やすいように実際の角度より大きく動かす。OKのときは中央に吸い付かせる
     const pitchErr = state.tilt.pitch - t.pitch.target_deg;
     const dy = j.pitchOk ? 0 : Math.max(-330, Math.min(330, pitchErr * 22));
-    const rot = j.rollOk ? 0 : Math.max(-50, Math.min(50, state.tilt.roll * 3));
+    const rot = j.rollOk ? 0 : Math.max(-40, Math.min(40, state.tilt.roll * 3));
     level.setAttribute('transform', `translate(0 ${H / 2 + dy}) rotate(${rot} ${W / 2} 0)`);
     let path = '';
     let hy = H / 2 - 110;
@@ -225,6 +250,11 @@ function detectPose() {
 
 async function startPose() {
   if (!POSE) return;
+  if (!poseSupported(state.template)) {
+    $('pose-badge').hidden = false;
+    $('pose-badge').textContent = '座りは骨格判定なし';
+    return;
+  }
   state.pose.judge = null;
   state.pose.auto = null;
   $('pose-badge').hidden = false;
@@ -338,7 +368,7 @@ function renderTemplates() {
     const name = Object.assign(document.createElement('span'), { className: 'name', textContent: t.name ?? t.id });
     const meta = Object.assign(document.createElement('span'), {
       className: 'meta',
-      textContent: `中央の線=${PART_LABEL[t.center_line_part]}の高さ ・ ${t.owner_hint ?? ''}`,
+      textContent: `${t.photographer_hint ?? `スマホは${PART_LABEL[t.center_line_part]}の高さ`} ・ ${t.owner_hint ?? ''}`,
     });
     b.append(svg, name, meta);
     b.addEventListener('click', () => {
@@ -361,6 +391,7 @@ async function enterShoot() {
   state.handoffAt = Date.now();
   $('frame').style.setProperty('--aspect', parseAspect(state.template.aspect));
   gaugeParts = drawOverlay($('overlay'), state.template, { gauge: true });
+  $('shoot').dataset.plain = String(state.plain);
   for (const dot of $('dots').children) dot.classList.remove('done');
   $('shutter').disabled = false;
   $('sim').hidden = !SIM;
@@ -371,6 +402,8 @@ async function enterShoot() {
   setTimeout(() => { $('sensor-badge').hidden = !!state.tilt || $('shoot').hidden; }, 1500);
   try { state.wakeLock ??= await navigator.wakeLock?.request('screen'); } catch { /* なくてもよい */ }
 }
+
+$('plain').addEventListener('change', (e) => { state.plain = e.target.checked; });
 
 $('start').addEventListener('click', async () => {
   if (!state.template || state.busy) return;
@@ -419,6 +452,7 @@ async function shoot_(auto = true) {
       at: new Date(shotAt).toISOString(),
       event: 'burst',
       template_id: state.template.id,
+      mode: state.plain ? 'plain' : 'guide',
       pitch_deg: tiltAtShutter ? +tiltAtShutter.pitch.toFixed(1) : null,
       roll_deg: tiltAtShutter ? +tiltAtShutter.roll.toFixed(1) : null,
       tilt_ok: judgeAtShutter ? judgeAtShutter.ok : null,
@@ -485,7 +519,7 @@ $('to-result').addEventListener('click', () => {
 
 $('save').addEventListener('click', async () => {
   const shot = state.shots[state.selected];
-  const name = `tatori-${state.template.id}-${Date.now()}.jpg`;
+  const name = `tatori-${state.template.id}-${state.plain ? 'plain' : 'guide'}-${Date.now()}.jpg`;
   const file = new File([shot.blob], name, { type: 'image/jpeg' });
   let how;
   try {
@@ -507,7 +541,7 @@ $('save').addEventListener('click', async () => {
   }
   $('save-status').textContent = how === 'share' ? '共有シートに渡しました。' : 'ダウンロードしました。';
   appendLog({
-    at: new Date().toISOString(), event: 'save', template_id: state.template.id,
+    at: new Date().toISOString(), event: 'save', template_id: state.template.id, mode: state.plain ? 'plain' : 'guide',
     selected_index: state.selected, retake_count: state.retakes,
   });
 });

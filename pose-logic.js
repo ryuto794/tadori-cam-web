@@ -51,6 +51,11 @@ export function fitBody(body) {
   };
 }
 
+/** 骨格での判定は立ち姿だけ。座りは関節の比率が違うので判定しない */
+export function poseSupported(template) {
+  return template.pose !== 'seated';
+}
+
 /** テンプレが求める人物の位置(fitBody と同じ形) */
 export function expectedBody(template) {
   const { top, height, x } = silhouetteLayout(template);

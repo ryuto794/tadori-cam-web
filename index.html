@@ -52,7 +52,7 @@
   .stack { display: flex; flex-direction: column; gap: 10px; }
 
   /* お手本の一覧 */
-  .templates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .templates { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .tpl {
     border: 2px solid var(--line); background: var(--surface); border-radius: var(--radius);
     padding: 10px; text-align: left; display: flex; flex-direction: column; gap: 8px;
@@ -84,12 +84,22 @@
   .flash.on { animation: flash .18s ease-out; }
   @keyframes flash { from { opacity: .85; } to { opacity: 0; } }
 
-  .sil-shadow { fill: none; stroke: rgba(0,0,0,.55); stroke-width: 9; stroke-linejoin: round; }
-  .sil { fill: none; stroke: #fff; stroke-width: 5; stroke-dasharray: 2 14; stroke-linecap: round; stroke-linejoin: round; }
-  .centerline { stroke: #fff; stroke-width: 2; stroke-dasharray: 10 8; opacity: .8; }
-  .centerline-shadow { stroke: rgba(0,0,0,.5); stroke-width: 5; }
-  .level { stroke: var(--accent); stroke-width: 7; stroke-linecap: round; }
-  .level-shadow { stroke: rgba(0,0,0,.55); stroke-width: 12; stroke-linecap: round; }
+  .sil-shadow { fill: none; stroke: rgba(0,0,0,.55); stroke-width: 11; stroke-linejoin: round; }
+  .sil { fill: none; stroke: #fff; stroke-width: 6; stroke-dasharray: 1 16; stroke-linecap: round; stroke-linejoin: round; }
+  .tick { fill: #fff; opacity: .9; }
+  .tick-shadow { fill: rgba(0,0,0,.45); }
+  .mark { fill: none; stroke: #fff; stroke-width: 5; }
+  .mark-shadow { fill: none; stroke: rgba(0,0,0,.55); stroke-width: 11; }
+  .level { stroke: var(--accent); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 150 150; }
+  .level-shadow { stroke: rgba(0,0,0,.5); stroke-width: 14; stroke-linecap: round; }
+  #shoot[data-tilt="true"] .level { stroke-dasharray: none; }
+  #shoot[data-ok="true"] .mark { stroke: var(--ok); }
+  #shoot[data-plain="true"] #overlay { display: none; }
+  #shoot[data-plain="true"] .frame { box-shadow: none !important; }
+  #shoot[data-plain="true"] .shutter { border-color: #fff !important; }
+  #shoot[data-plain="true"] .shutter::before { background: #fff !important; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); }
+  .check input { width: 18px; height: 18px; }
   .hint { fill: var(--accent); stroke: rgba(0,0,0,.55); stroke-width: 3; paint-order: stroke; }
   .joint { fill: #5ad1ff; stroke: rgba(0,0,0,.6); stroke-width: 3; }
   #shoot[data-tilt="true"] .level, #shoot[data-ok="true"] .sil { stroke: var(--ok); }
@@ -164,6 +174,7 @@
     <p class="sub">選ぶ → 渡す → 点線に合わせて撮ってもらう。</p>
     <div class="templates" id="templates"></div>
     <div class="notice" id="notice" hidden></div>
+    <label class="check" for="plain"><input type="checkbox" id="plain"> ガイドなしで撮る(比べるためのテスト用)</label>
     <button class="btn primary" id="start" type="button" disabled>上のお手本をタップして選ぶ</button>
     <p class="sub">撮影中は左上の鍵マークを長押しすると、この画面に戻ります。</p>
   </div>

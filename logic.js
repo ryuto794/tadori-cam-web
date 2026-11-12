@@ -3,13 +3,28 @@
 
 const RAD = Math.PI / 180;
 
-/** 全身シルエットの頭頂を 0、足先を 1 としたときの各部位の高さ */
+/** 立っている人の頭頂を 0、足先を 1 としたときの各部位の高さ */
 export const PART_FRACTION = Object.freeze({
   eye: 0.06,
+  shoulder: 0.19,
   chest: 0.26,
+  solar: 0.36,   // みぞおち。全身・立ちのお手本11枚の中央値
   waist: 0.42,
   knee: 0.72,
 });
+
+/** 座っている人(頭頂 0、床についた足先 1)の各部位の高さ。引きの座りのお手本7枚から */
+export const SEATED_PART_FRACTION = Object.freeze({
+  eye: 0.1,
+  shoulder: 0.25,
+});
+
+export const POSES = Object.freeze(['standing', 'seated']);
+
+/** テンプレの姿勢に合った部位の表 */
+export function partTable(template) {
+  return template.pose === 'seated' ? SEATED_PART_FRACTION : PART_FRACTION;
+}
 
 /**
  * deviceorientation の beta / gamma から、端末座標系での「世界の上向き」ベクトルを返す。
@@ -83,7 +98,8 @@ export function cropRect(videoW, videoH, aspect) {
  * @returns {top, height, x}  top:頭頂のy、height:全身の高さ、x:中心のx(画面の幅=1)
  */
 export function silhouetteLayout(template) {
-  const part = PART_FRACTION[template.center_line_part];
+  if (template.pose !== undefined && !POSES.includes(template.pose)) throw new Error(`pose が不正です: ${template.pose}`);
+  const part = partTable(template)[template.center_line_part];
   if (part === undefined) throw new Error(`center_line_part が不正です: ${template.center_line_part}`);
   if (template.anchor?.part !== 'head') throw new Error('anchor.part は head のみ対応しています');
   const top = template.anchor.y_from_top;
@@ -100,6 +116,13 @@ export function validateTemplate(t) {
   if (typeof t.pitch?.target_deg !== 'number') errors.push('pitch.target_deg がありません');
   if (!(t.roll?.tol_deg > 0)) errors.push('roll.tol_deg は正の数にしてください');
   try { silhouetteLayout(t); } catch (e) { errors.push(e.message); }
+  if (t.outline !== undefined && !(Array.isArray(t.outline) && t.outline.length >= 8
+    && t.outline.every((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)))) {
+    errors.push('outline は [x, y] の点を8個以上並べた配列にしてください');
+  }
+  if (t.pose === 'seated' && !(t.center_line_part in SEATED_PART_FRACTION)) {
+    errors.push(`座りの center_line_part は ${Object.keys(SEATED_PART_FRACTION).join(' / ')} のどれかにしてください`);
+  }
   return errors;
 }
 

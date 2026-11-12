@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   JOINT_FRACTION, fitBody, expectedBody, pickSubject, judgePose,
-  nextInstruction, updateAutoShoot, bodyFromMediaPipe,
+  nextInstruction, updateAutoShoot, bodyFromMediaPipe, poseSupported,
 } from '../pose-logic.js';
 
 const tpl = {
@@ -129,6 +129,11 @@ test('自動撮影:合った状態が0.5秒続いたら1回だけ撃つ', () => 
   assert.equal(s.fire, false);
   s = updateAutoShoot(s, true, 2400);
   assert.equal(s.fire, true);
+});
+
+test('座りのテンプレは骨格で判定しない', () => {
+  assert.equal(poseSupported(tpl), true);
+  assert.equal(poseSupported({ ...tpl, pose: 'seated' }), false);
 });
 
 test('MediaPipe の33点から関節を取り出す', () => {
