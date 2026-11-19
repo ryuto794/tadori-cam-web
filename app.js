@@ -42,7 +42,7 @@ const state = {
 };
 
 // ---------- 画面の切り替え ----------
-const SCREENS = ['picker', 'shoot', 'handback', 'result', 'log'];
+const SCREENS = ['picker', 'shoot', 'result', 'log'];
 function show(name) {
   for (const s of SCREENS) $(s).hidden = s !== name;
   window.scrollTo(0, 0);
@@ -477,7 +477,8 @@ async function shoot_(auto = true) {
       }),
     });
     stopPose();
-    show('handback');
+    // 撮り終えたら、その場ですぐ結果を並べる(撮った人と一緒に見て、撮り直しを頼みやすくする)
+    openResult();
   } catch (err) {
     $('shutter').disabled = false;
     console.error(err);
@@ -519,12 +520,12 @@ function renderResult() {
   });
 }
 
-$('to-result').addEventListener('click', () => {
+function openResult() {
   state.selected = 0;
   $('save-status').textContent = '';
   renderResult();
   show('result');
-});
+}
 
 $('save').addEventListener('click', async () => {
   const shot = state.shots[state.selected];

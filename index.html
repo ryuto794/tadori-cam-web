@@ -142,8 +142,6 @@
   .sim label { flex: 1; display: flex; gap: 6px; align-items: center; }
   .sim input { flex: 1; min-width: 0; }
 
-  /* 返してね */
-  #handback .page { min-height: 100dvh; justify-content: center; text-align: center; gap: 22px; }
   .big { font-size: 28px; font-weight: 800; line-height: 1.3; margin: 0; }
   .big small { display: block; font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 6px; }
 
@@ -201,13 +199,7 @@
   </div>
 </section>
 
-<!-- 3. 本人に返す -->
-<section id="handback" class="screen" hidden>
-  <div class="page">
-    <p class="big">撮れました<small>スマホを本人に返してください<br>Please hand the phone back</small></p>
-    <button class="btn primary" id="to-result" type="button">写真を見る</button>
-  </div>
-</section>
+
 
 <!-- 4. 選んで保存(オーナー) -->
 <section id="result" class="screen" hidden>
