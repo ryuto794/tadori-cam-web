@@ -7,7 +7,7 @@
     "pose": "standing",
     "people": 1,
     "gender": "female",
-    "aspect": "4:5",
+    "aspect": "3:4",
     "lens": "1x",
     "pitch": {
       "target_deg": 0,
@@ -18,12 +18,12 @@
     },
     "center_line_part": "solar",
     "subject_size": {
-      "target": 0.72,
+      "target": 0.675,
       "tol": 0.06
     },
     "anchor": {
       "part": "head",
-      "y_from_top": 0.24
+      "y_from_top": 0.256
     },
     "subject_x": 0.5,
     "owner_hint": "壁や看板の前に立つ。足先は画面の下端ぎりぎり",
@@ -39,7 +39,7 @@
     "pose": "seated",
     "people": 1,
     "gender": "female",
-    "aspect": "4:5",
+    "aspect": "3:4",
     "lens": "1x",
     "pitch": {
       "target_deg": 0,
@@ -50,12 +50,12 @@
     },
     "center_line_part": "shoulder",
     "subject_size": {
-      "target": 0.6,
+      "target": 0.562,
       "tol": 0.08
     },
     "anchor": {
       "part": "head",
-      "y_from_top": 0.35
+      "y_from_top": 0.359
     },
     "subject_x": 0.6,
     "owner_hint": "右寄りに座り、左にテーブルや飲み物を入れる",
@@ -71,7 +71,7 @@
     "pose": "standing",
     "people": 1,
     "gender": "female",
-    "aspect": "4:5",
+    "aspect": "3:4",
     "lens": "1x",
     "pitch": {
       "target_deg": 0,
@@ -82,12 +82,12 @@
     },
     "center_line_part": "shoulder",
     "subject_size": {
-      "target": 0.85,
+      "target": 0.797,
       "tol": 0.06
     },
     "anchor": {
       "part": "head",
-      "y_from_top": 0.33
+      "y_from_top": 0.341
     },
     "subject_x": 0.5,
     "owner_hint": "上に空や看板を入れる。すねの途中で切れる",

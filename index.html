@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#101214">
 <title>他撮りガイドカメラ(仮)Web試作</title>
 <style>
-  /* 配置:オーナーの画面は1カラムの一覧。撮影者の画面は黒地に 4:5 の枠とシャッターだけ。 */
+  /* 配置:オーナーの画面は1カラムの一覧。撮影者の画面は黒地に 3:4 の枠とシャッターだけ。 */
   :root {
     color-scheme: dark;
     --bg: #101214;
@@ -174,6 +174,7 @@
     <p class="sub">選ぶ → 渡す → 点線に合わせて撮ってもらう。</p>
     <div class="templates" id="templates"></div>
     <div class="notice" id="notice" hidden></div>
+    <label class="check" for="ai"><input type="checkbox" id="ai"> AI で判定して、合ったら自動で撮る</label>
     <label class="check" for="plain"><input type="checkbox" id="plain"> ガイドなしで撮る(比べるためのテスト用)</label>
     <button class="btn primary" id="start" type="button" disabled>上のお手本をタップして選ぶ</button>
     <p class="sub">撮影中は左上の鍵マークを長押しすると、この画面に戻ります。</p>

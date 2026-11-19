@@ -15,9 +15,10 @@ const LOG_KEY = 'tatori_cam_log_v1';
 const PARAMS = new URLSearchParams(location.search);
 const SIM = PARAMS.has('sim');
 // 実験用(MVP の既定では切ってある):?pose=1 で骨格検出、?pose=debug で関節の点も表示、&auto=1 で自動撮影
-const POSE = PARAMS.has('pose');
+// AI 判定(骨格検出+自動シャッター)。選択画面のスイッチで切り替える。URL の ?pose=1&auto=1 でも最初からオンにできる
+let POSE = PARAMS.has('pose');
 const POSE_DEBUG = PARAMS.get('pose') === 'debug';
-const AUTO = POSE && PARAMS.has('auto');
+let AUTO = POSE && (PARAMS.has('auto') || !PARAMS.has('pose'));
 const MEDIAPIPE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 const POSE_INTERVAL_MS = 100;
@@ -249,7 +250,7 @@ function detectPose() {
 }
 
 async function startPose() {
-  if (!POSE) return;
+  if (!POSE) { stopPose(); $('pose-badge').hidden = true; return; }
   if (!poseSupported(state.template)) {
     $('pose-badge').hidden = false;
     $('pose-badge').textContent = '座りは骨格判定なし';
@@ -403,7 +404,14 @@ async function enterShoot() {
   try { state.wakeLock ??= await navigator.wakeLock?.request('screen'); } catch { /* なくてもよい */ }
 }
 
-$('plain').addEventListener('change', (e) => { state.plain = e.target.checked; });
+$('plain').addEventListener('change', (e) => {
+  state.plain = e.target.checked;
+  // ガイドなしのときは AI 判定も使わない(素のカメラと比べるため)
+  $('ai').disabled = state.plain;
+  if (state.plain) { $('ai').checked = false; POSE = AUTO = false; }
+});
+$('ai').addEventListener('change', (e) => { POSE = AUTO = e.target.checked; });
+$('ai').checked = POSE;
 
 $('start').addEventListener('click', async () => {
   if (!state.template || state.busy) return;
@@ -453,6 +461,7 @@ async function shoot_(auto = true) {
       event: 'burst',
       template_id: state.template.id,
       mode: state.plain ? 'plain' : 'guide',
+      ai: POSE,
       pitch_deg: tiltAtShutter ? +tiltAtShutter.pitch.toFixed(1) : null,
       roll_deg: tiltAtShutter ? +tiltAtShutter.roll.toFixed(1) : null,
       tilt_ok: judgeAtShutter ? judgeAtShutter.ok : null,
@@ -519,7 +528,7 @@ $('to-result').addEventListener('click', () => {
 
 $('save').addEventListener('click', async () => {
   const shot = state.shots[state.selected];
-  const name = `tatori-${state.template.id}-${state.plain ? 'plain' : 'guide'}-${Date.now()}.jpg`;
+  const name = `tatori-${state.template.id}-${state.plain ? 'plain' : POSE ? 'ai' : 'guide'}-${Date.now()}.jpg`;
   const file = new File([shot.blob], name, { type: 'image/jpeg' });
   let how;
   try {
