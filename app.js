@@ -38,6 +38,7 @@ const state = {
   busy: false,
   wakeLock: null,
   plain: false,        // 比較用:ガイドを出さずに撮る
+  navi: false,         // ナビだけ:点線を出さず、動く方向だけ指示する(AI オンのとき)
   pose: { landmarker: null, loading: null, ready: false, judge: null, subject: null, auto: null, timer: 0 },
 };
 
@@ -148,6 +149,8 @@ const POSE_HINTS = {
   // 近づく=四隅へ広がる山形、下がる=中心へ縮む山形
   closer: [45, 135, 225, 315].map((a) => ({ d: CHEVRON, rot: a, r: 46 })),
   back: [45, 135, 225, 315].map((a) => ({ d: CHEVRON, rot: a + 180, r: -64 })),
+  // 人が見つからない:人の形のアイコン(カメラを人に向けて)
+  no_subject: [{ d: 'M0,-58 a20,20 0 1 1 0,40 a20,20 0 1 1 0,-40 Z M-34,58 C-34,10 -20,-10 0,-10 C20,-10 34,10 34,58 Z', rot: 0 }],
 };
 
 let gaugeParts = null;
@@ -200,7 +203,9 @@ function render() {
       el('path', { d: part.d, class: 'hint', transform: `rotate(${part.rot}) translate(${part.r ?? 0} 0)` }, poseHint);
     }
   }
-  poseHint.setAttribute('transform', `translate(${W / 2} ${H * 0.8}) scale(1.7)`);
+  // ナビだけ(N)のときは点線がないので、指示を画面の真ん中に大きく出す
+  const navi = shoot.dataset.navi === 'true';
+  poseHint.setAttribute('transform', navi ? `translate(${W / 2} ${H * 0.5}) scale(2.6)` : `translate(${W / 2} ${H * 0.8}) scale(1.7)`);
 
   if (POSE_DEBUG) {
     debug.replaceChildren();
@@ -393,6 +398,8 @@ async function enterShoot() {
   $('frame').style.setProperty('--aspect', parseAspect(state.template.aspect));
   gaugeParts = drawOverlay($('overlay'), state.template, { gauge: true });
   $('shoot').dataset.plain = String(state.plain);
+  // ナビだけは骨格で判定できる型(立ち)だけ。座りは点線に戻す
+  $('shoot').dataset.navi = String(state.navi && POSE && poseSupported(state.template));
   for (const dot of $('dots').children) dot.classList.remove('done');
   $('shutter').disabled = false;
   $('sim').hidden = !SIM;
@@ -409,8 +416,16 @@ $('plain').addEventListener('change', (e) => {
   // ガイドなしのときは AI 判定も使わない(素のカメラと比べるため)
   $('ai').disabled = state.plain;
   if (state.plain) { $('ai').checked = false; POSE = AUTO = false; }
+  $('navi').disabled = state.plain || !POSE;
+  if ($('navi').disabled) { $('navi').checked = false; state.navi = false; }
 });
-$('ai').addEventListener('change', (e) => { POSE = AUTO = e.target.checked; });
+$('ai').addEventListener('change', (e) => {
+  POSE = AUTO = e.target.checked;
+  $('navi').disabled = !POSE;
+  if (!POSE) { $('navi').checked = false; state.navi = false; }
+});
+$('navi').addEventListener('change', (e) => { state.navi = e.target.checked; });
+$('navi').disabled = !POSE;
 $('ai').checked = POSE;
 
 $('start').addEventListener('click', async () => {
@@ -462,6 +477,7 @@ async function shoot_(auto = true) {
       template_id: state.template.id,
       mode: state.plain ? 'plain' : 'guide',
       ai: POSE,
+      navi: $('shoot').dataset.navi === 'true',
       pitch_deg: tiltAtShutter ? +tiltAtShutter.pitch.toFixed(1) : null,
       roll_deg: tiltAtShutter ? +tiltAtShutter.roll.toFixed(1) : null,
       tilt_ok: judgeAtShutter ? judgeAtShutter.ok : null,
@@ -529,7 +545,8 @@ function openResult() {
 
 $('save').addEventListener('click', async () => {
   const shot = state.shots[state.selected];
-  const name = `tatori-${state.template.id}-${state.plain ? 'plain' : POSE ? 'ai' : 'guide'}-${Date.now()}.jpg`;
+  const mode = state.plain ? 'plain' : $('shoot').dataset.navi === 'true' ? 'navi' : POSE ? 'ai' : 'guide';
+  const name = `tatori-${state.template.id}-${mode}-${Date.now()}.jpg`;
   const file = new File([shot.blob], name, { type: 'image/jpeg' });
   let how;
   try {
